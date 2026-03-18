@@ -1,0 +1,129 @@
+<!DOCTYPE html> 
+<HTML lang="fi"> 
+<HEAD>
+	<meta charset="UTF-8"/>
+	<TITLE>Osaamistiedot </TITLE>
+	<STYLE>
+		body { font-family: Arial, sans-serif; }
+		.otsikot {
+            font-weight: bold;
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr 1fr;
+            gap: 10px;
+		}
+		ul#tulokset { list-style: none; padding: 0; }
+        ul#tulokset li {
+            padding: 5px;
+            border-bottom: 1px solid #ccc;
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr 1fr;
+            gap: 10px;
+		}
+		#top3_lisatiedot {
+			width: 100%;
+			height: 120px;
+			resize: vertical;
+			font-family: Arial, sans-serif;
+		}
+		.modal {
+			display: none;
+			position: fixed;
+			z-index: 999;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0,0,0,0.4);
+		}
+		.modalSisalto {
+			background-color: white;
+			margin: 10% auto;
+			padding: 20px;
+			width: 500px;
+			border-radius: 6px;
+		}
+		.sulje {
+			float: right;
+			font-size: 24px;
+			cursor: pointer;
+		}
+		
+		.overlay-content {
+			background: white;
+			padding: 20px;
+			margin: 100px auto;
+			max-width: 600px;
+			width: 90%;
+			border-radius: 6px;
+		}
+		
+		.overlay {
+			display: none;
+			position: fixed;
+			inset: 0;
+			background: rgba(0,0,0,0.4);
+			z-index: 999;
+		}
+		
+		li {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.henkilo-napit {
+			display: flex;
+			gap: 6px;
+			flex-wrap: nowrap;
+		}
+
+		.henkilo-napit button {
+			white-space: nowrap;
+		}
+		
+	</STYLE>
+	
+</HEAD>
+<BODY>
+	<H1>Henkilöhaku</H1>
+	
+	{% include "partials/Osaamistiedot_Taidot.html" %}
+	
+	
+	<script src="{{ url_for('static', filename='js/osaamistiedot.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/hlo_oper.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/top3.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/taidot.js') }}"></script>
+	
+	<input type="text" id="hakukentta" placeholder="Nimi">
+	<button onclick="haeHenkilot(1)">Hae kaikki</button> 
+	<button onclick="haeHenkilot(2)">Etunimi</button> 
+	<button onclick="haeHenkilot(3)">Sukunimi</button>
+	
+    <ul id="tulokset"></ul>
+	
+	<input type="text" id="maara" readonly /> <br><br>
+	
+	<button onclick="avaaHenkiloLomake()">Lisää henkilö</button>
+	<button onclick="avaaTaitoHaku()">Hae henkilöt taidolla</button>
+	
+	<div id="modalTausta" class="modal">
+		<div class="modalSisalto">
+			<span class="sulje" onclick="suljeModal()">&times;</span>
+			<div id="modalSisalto"></div>
+		</div>
+	</div>
+	
+	<div id="taitoHakuOverlay" class="overlay">
+		<div class="overlay-content">
+			<h2>Hae henkilöt taidolla</h2>
+			<input type="text" id="taitoHakuKentta">
+			<button onclick="haeHenkilot(4)">Hae</button>
+			<ul id="taitoHakuTulokset"></ul>
+			<button onclick="suljeTaitoHaku()">Sulje</button>
+		</div>
+	</div>
+	
+</BODY>
+</HTML>

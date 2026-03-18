@@ -1,0 +1,513 @@
+<!DOCTYPE html> 
+<HTML lang="fi"> 
+<HEAD>
+	<meta charset="UTF-8"/>
+	<TITLE>Osaamistiedot </TITLE>
+	<STYLE>
+		body { font-family: Arial, sans-serif; }
+		.otsikot {
+            font-weight: bold;
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr 1fr;
+            gap: 10px;
+		}
+		ul#tulokset { list-style: none; padding: 0; }
+        ul#tulokset li {
+            padding: 5px;
+            border-bottom: 1px solid #ccc;
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr 1fr;
+            gap: 10px;
+		}
+		#top3_lisatiedot {
+			width: 100%;
+			height: 120px;
+			resize: vertical;
+			font-family: Arial, sans-serif;
+		}
+		.modal {
+			display: none;
+			position: fixed;
+			z-index: 999;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0,0,0,0.4);
+		}
+		.modalSisalto {
+			background-color: white;
+			margin: 10% auto;
+			padding: 20px;
+			width: 500px;
+			border-radius: 6px;
+		}
+		.sulje {
+			float: right;
+			font-size: 24px;
+			cursor: pointer;
+		}
+		
+		.overlay-content {
+			background: white;
+			padding: 20px;
+			margin: 100px auto;
+			max-width: 600px;
+			width: 90%;
+			border-radius: 6px;
+		}
+		
+		.overlay {
+			display: none;
+			position: fixed;
+			inset: 0;
+			background: rgba(0,0,0,0.4);
+			z-index: 999;
+		}
+		
+		li {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.henkilo-napit {
+			display: flex;
+			gap: 6px;
+			flex-wrap: nowrap;
+		}
+
+		.henkilo-napit button {
+			white-space: nowrap;
+		}
+		
+	</STYLE>
+	<SCRIPT>
+	
+		document.addEventListener("DOMContentLoaded", function() {
+		
+			haeHenkilot(1);
+			
+			
+		}); 
+		//osaamistiedot.js
+		
+		function onkoKelvollinenEmail(email) {
+			const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+			return re.test(email);
+		} //hlo_oper.js
+			
+		async function haeHenkilot(tyyppi) {
+			let url = "/hae_henkilot";
+
+			if (tyyppi === 2 || tyyppi === 3) {
+				const nimi = document.getElementById("hakukentta").value.trim();
+				url += `?tyyppi=${tyyppi}&nimi=${encodeURIComponent(nimi)}`;
+			}
+
+			else if (tyyppi === 4) {
+				const taito = document.getElementById("taitoHakuKentta").value.trim();
+
+				if (!taito) {
+					alert("Anna taito");
+					return;
+				}
+
+				url += `?tyyppi=4&taito=${encodeURIComponent(taito)}`;
+			}
+
+			const vastaus = await fetch(url);
+			const data = await vastaus.json();
+			naytaHenkiloLista(data);
+		} 
+		//osaamistiedot.js
+
+
+		async function tallenna() {
+			const id = document.getElementById("henkilo_id").value;
+
+			const data = {
+				etunimi: document.getElementById("etunimi").value,
+				sukunimi: document.getElementById("sukunimi").value,
+				sposti: document.getElementById("sposti").value,
+				li_sivu: document.getElementById("li_sivu").value
+			};
+			
+			if (!data.etunimi.trim()) {
+				alert("Etunimi on pakollinen");
+				return;
+			}
+			
+			if (!data.sukunimi.trim()) {
+				alert("Sukunimi on pakollinen");
+				return;
+			}
+			
+			if (!data.sposti.trim()) {
+				alert("Sähköposti on pakollinen");
+				return;
+			}
+			
+			if (!onkoKelvollinenEmail(data.sposti)) {
+				alert("Sähköpostiosoite ei ole kelvollinen");
+				return;
+			}
+
+			let url = "/lisaa_henkilo";
+			let method = "POST";
+			
+			// jos id löytyy → käytetään update-reittiä
+			if (id) {
+				url = "/paivita_henkilo";
+				data.id = id;
+			}
+			
+			const vastaus = await fetch(url, {
+				method: method,
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data)
+			});
+
+			const tulos = await vastaus.json();
+			
+			if (tulos.status === "ok") {
+			// tyhjennetään formi
+				document.getElementById("henkilo_id").value = "";
+				document.getElementById("etunimi").value = "";
+				document.getElementById("sukunimi").value = "";
+				document.getElementById("sposti").value = "";
+				document.getElementById("li_sivu").value = "";
+
+				haeHenkilot(1);
+			}
+		} 
+		//hlo_oper.js
+			
+		
+		async function poistaHenkilo(id) {
+			if (!confirm("Poistetaanko henkilö varmasti?")) {
+				return;
+			}
+
+			const vastaus = await fetch("/poista_henkilo", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ id: id })
+			});
+
+			const tulos = await vastaus.json();
+
+			if (tulos.status === "ok") {
+				alert("Henkilö poistettu");
+				haeHenkilot(1);  // päivitetään lista
+			} else {
+				alert("Poisto epäonnistui");
+			}
+		} 
+		//hlo_oper.js
+		
+	async function muokkaaHenkiloa(id) {
+		const vastaus = await fetch(`/hae_henkilo?id=${id}`);
+		const h = await vastaus.json();
+
+		avaaModal(`
+			<h3>Muokkaa henkilöä</h3>
+			<input type="hidden" id="henkilo_id" value="${h.id}">
+
+			Etunimi<br><input id="etunimi" value="${h.etunimi}"><br>
+			Sukunimi<br><input id="sukunimi" value="${h.sukunimi}"><br>
+			Sähköposti<br><input id="sposti" value="${h.sposti}"><br>
+			LinkedIn<br><input id="li_sivu" value="${h.li_sivu}"><br><br>
+
+			<button onclick="tallenna()">Tallenna</button>
+    `	);
+	} 
+	//hlo_oper.js
+	
+	async function top3Toiminnot(id) {
+		const vastaus = await fetch(`/hae_top3?id=${id}`);
+		const data = await vastaus.json();
+
+		let t1 = "", t2 = "", t3 = "", l = "";
+
+		if (data.found) {
+			t1 = data.top_1;
+			t2 = data.top_2;
+			t3 = data.top_3;
+			l = data.lisatiedot || "";
+		}
+
+		avaaModal(`
+			<h3>Top 3 taidot</h3>
+			<input type="hidden" id="top3_henkilo_id" value="${id}">
+
+			Top 1<br><input id="top1" value="${t1}"><br>
+			Top 2<br><input id="top2" value="${t2}"><br>
+			Top 3<br><input id="top3" value="${t3}"><br>
+			Lisätiedot<br>
+			<textarea id="top3_lisatiedot" rows="5">${l}</textarea><br><br>
+
+			<button onclick="tallennaTop3()">Tallenna</button>
+    `	);
+	} 
+	//top3.js
+	
+	async function tallennaTop3() {
+		const data = {
+			id: document.getElementById("top3_henkilo_id").value,
+			top_1: document.getElementById("top1").value,
+			top_2: document.getElementById("top2").value,
+			top_3: document.getElementById("top3").value,
+			lisatiedot: document.getElementById("top3_lisatiedot").value
+		};
+
+		const vastaus = await fetch("/tallenna_top3", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(data)
+		});
+
+		const tulos = await vastaus.json();
+
+		if (tulos.status === "ok") {
+			alert("Top 3 -tiedot tallennettu");
+			document.getElementById("top3Form").style.display = "none";
+		}
+	} 
+	//top3.js
+	
+	function avaaHenkiloLomake() {
+		avaaModal(`
+			<h3>Henkilön tiedot</h3>
+			<input type="hidden" id="henkilo_id">
+
+			Etunimi<br><input id="etunimi"><br>
+			Sukunimi<br><input id="sukunimi"><br>
+			Sähköposti<br><input id="sposti"><br>
+			LinkedIn<br><input id="li_sivu"><br><br>
+
+			<button onclick="tallenna()">Tallenna</button>
+    `	);
+	}
+	//osaamistiedot.js
+	
+	function avaaModal(html) {
+		document.getElementById("modalSisalto").innerHTML = html;
+		document.getElementById("modalTausta").style.display = "block";
+	}
+	//osaamistiedot.js
+	
+	function suljeModal() {
+		document.getElementById("modalTausta").style.display = "none";
+	} 
+	//osaamistiedot.js
+	
+	let nykyisetTaidot = [];
+	
+	const olemassa = nykyisetTaidot
+			.some(t => t.taito.toLowerCase() === uusiTaito.toLowerCase());
+			
+	async function haeTaidot(henkiloId) {
+		const vastaus = await fetch(`/hae_taidot/${henkiloId}`);
+		const data = await vastaus.json();
+		
+		nykyisetTaidot = data;
+
+		const lista = document.getElementById("taitoLista");
+		lista.innerHTML = "";
+
+		if (data.length === 0) {
+			lista.innerHTML = "<li>Ei taitoja</li>";
+			return;
+		}
+
+		data.forEach(taito => {
+			const li = document.createElement("li");
+			li.innerHTML = `
+				${taito.taito}
+				<button onclick="poistaTaito(${taito.id})">Poista</button>
+        `	;
+			lista.appendChild(li);
+		});
+	} 
+	//taidot.js
+	
+	function suljeTaitoIkkuna() {
+		document.getElementById("taitoOverlay").style.display = "none";
+	} 
+	//taidot.js
+	
+	let aktiivinenHenkiloId = null;
+	//taidot.js
+	
+	function naytaTaitoIkkuna(henkiloId) {
+		aktiivinenHenkiloId = henkiloId;
+
+		document.getElementById("taitoOverlay").style.display = "block";
+
+		haeTaidot(henkiloId);
+	} 
+	//taidot.js
+	
+	function lisaaTaito() {
+
+		if (!aktiivinenHenkiloId) {
+			alert("Henkilö ei ole valittuna");
+			return;
+		}
+
+		const taito = document.getElementById("uusiTaito").value.trim();
+
+		if (!taito) {
+			alert("Anna taito");
+			return;
+		}
+		
+		const olemassa = nykyisetTaidot.some(
+			t => t.taito.toLowerCase() === taito.toLowerCase()
+		);
+			
+		if (olemassa) {
+			alert("Taito on jo lisätty tälle henkilölle");
+			return;
+		}
+
+		fetch("/lisaa_taito", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				henkilo_id: aktiivinenHenkiloId,
+				taito: taito
+			})
+		})
+		.then(r => r.json())
+		.then(data => {
+			if (data.status === "ok") {
+					document.getElementById("uusiTaito").value = "";
+            haeTaidot(aktiivinenHenkiloId);
+			} else {
+				alert("Virhe tallennuksessa");
+			}
+		});
+	} 
+	//taidot.js
+	
+	function avaaTaidot(henkiloId) {
+		
+		naytaTaitoIkkuna(henkiloId);
+		
+	} 
+	//taidot.js
+	
+	function luoHenkiloHTML(h) {
+		return `
+			<div class="henkilo-teksti">
+				<div><strong>${h.etunimi} ${h.sukunimi}</strong></div>
+				<div>${h.sposti}</div>
+				${h.li_sivu ? `<div>${h.li_sivu}</div>` : ""}
+			</div>
+
+			<div class="henkilo-napit">
+				<button onclick="muokkaaHenkiloa(${h.id})">Muokkaa</button>
+				<button onclick="poistaHenkilo(${h.id})">Poista</button>
+				<button onclick="top3Toiminnot(${h.id})">Top 3</button>
+				<button onclick="avaaTaidot(${h.id})">Taidot</button>
+			</div>
+		`;
+	}
+	//osaamistiedot.js
+	
+	function naytaHenkiloLista(data) {
+
+		const tulosLista = document.getElementById("tulokset");
+		tulosLista.innerHTML = "";
+
+		if (data.length === 0) {
+			tulosLista.innerHTML = "<li>Ei tuloksia</li>";
+			document.getElementById("maara").value = 0;
+			return;
+		}
+
+		data.forEach(henkilo => {
+			const li = document.createElement("li");
+			li.innerHTML = luoHenkiloHTML(henkilo);
+			tulosLista.appendChild(li);
+		});
+
+		document.getElementById("maara").value = data.length;
+	} 
+	//osaamistiedot.js
+	
+	
+	function avaaTaitoHaku() {
+		const el = document.getElementById("taitoHakuOverlay");
+		el.style.display = "block";
+
+	}
+	//taidot.js
+	
+	function suljeTaitoHaku() {
+		document.getElementById("taitoHakuOverlay").style.display = "none";
+	}
+	//taidot.js
+	
+	</SCRIPT>
+</HEAD>
+<BODY>
+	<H1>Henkilöhaku</H1>
+	<input type="text" id="hakukentta" placeholder="Nimi">
+	<button onclick="haeHenkilot(1)">Hae kaikki</button> 
+	<button onclick="haeHenkilot(2)">Etunimi</button> 
+	<button onclick="haeHenkilot(3)">Sukunimi</button>
+	<input type="hidden" id="henkilo_id">
+	
+    <ul id="tulokset"></ul>
+	
+	<input type="text" id="maara" readonly /> <br><br>
+	
+	<button onclick="avaaHenkiloLomake()">Lisää Henkilö</button>
+	<button onclick="avaaTaitoHaku()">Hae henkilöt taidolla</button>
+	
+	<div id="modalTausta" class="modal">
+		<div class="modalSisalto">
+			<span class="sulje" onclick="suljeModal()">&times;</span>
+			<div id="modalSisalto"></div>
+		</div>
+	</div>
+	
+	<div id="taitoOverlay" style="display:none;
+     position:fixed; inset:0; background:rgba(0,0,0,0.4);">
+
+		<div style="
+			background:#fff;
+			width:500px;
+			margin:10% auto;
+			padding:20px;
+			border-radius:6px;">
+
+			<h2>Taidot</h2>
+
+			<ul id="taitoLista"></ul>
+
+			<h3>Lisää taito</h3>
+			<input type="text" id="uusiTaito" placeholder="Taito">
+			<button onclick="lisaaTaito()">Lisää</button>
+
+			<br><br>
+			<button onclick="suljeTaitoIkkuna()">Sulje</button>
+		</div>
+	</div>
+	
+	<div id="taitoHakuOverlay" class="overlay">
+		<div class="overlay-content">
+			<h2>Hae henkilöt taidolla</h2>
+			<input type="text" id="taitoHakuKentta">
+			<button onclick="haeHenkilot(4)">Hae</button>
+			<ul id="taitoHakuTulokset"></ul>
+			<button onclick="suljeTaitoHaku()">Sulje</button>
+		</div>
+	</div>
+	
+</BODY>
+</HTML>
